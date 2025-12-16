@@ -1,10 +1,19 @@
-import { useState } from "react";
-import { Card, Typography, Descriptions, Button, Table, Tabs } from "antd";
+import { useState, useMemo } from "react";
+import {
+  Card,
+  Typography,
+  Descriptions,
+  Button,
+  Table,
+  Tabs,
+  Alert,
+} from "antd";
 import { useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../stores/languageStore";
 import { DFA } from "../classes/DFA";
 import type { DFAState } from "../types/dfa";
 import { DFAGraph } from "./DFAGraph";
+import { InvalidSymbolError } from "../types/dfa";
 
 const { Title } = Typography;
 
@@ -15,11 +24,71 @@ export const ResultsPage = () => {
 
   const navigate = useNavigate();
 
-  if (!language || !chain) {
+  const dfa = useMemo(() => {
+    if (!language) return null;
+    return new DFA(language);
+  }, [language]);
+
+  const checkResult = useMemo(() => {
+    if (!dfa || !chain || !language) return null;
+    try {
+      const isAccepted = dfa.accepts(chain);
+      const trace = dfa.trace(chain);
+      const finalState = trace[trace.length - 1]?.state;
+
+      if (isAccepted) {
+        return {
+          accepted: true,
+          message: "Цепочка принимается автоматом",
+          finalState: finalState,
+        };
+      } else {
+        let reason = "";
+        if (finalState) {
+          const reasons: string[] = [];
+          if (finalState.progress !== language.targetString.length) {
+            reasons.push(
+              `не найдена обязательная конечная подцепочка "${language.targetString}" (прогресс: ${finalState.progress}/${language.targetString.length})`
+            );
+          }
+          if (finalState.count !== language.minCount) {
+            reasons.push(
+              `символ "${language.targetChar}" встретился ${finalState.count} раз(а), требуется ${language.minCount}`
+            );
+          }
+          reason = reasons.join("; ");
+        }
+        return {
+          accepted: false,
+          message: "Цепочка не принимается автоматом",
+          reason: reason || "Не достигнуто принимающее состояние",
+          finalState: finalState,
+        };
+      }
+    } catch (error) {
+      if (error instanceof InvalidSymbolError) {
+        return {
+          accepted: false,
+          message: "Цепочка не принимается автоматом",
+          reason: `Символ "${
+            error.message.split("'")[1]
+          }" не принадлежит алфавиту`,
+          finalState: null,
+        };
+      }
+      return {
+        accepted: false,
+        message: "Ошибка при проверке цепочки",
+        reason: error instanceof Error ? error.message : "Неизвестная ошибка",
+        finalState: null,
+      };
+    }
+  }, [dfa, chain, language]);
+
+  if (!language || !chain || !dfa) {
     return null;
   }
 
-  const dfa = new DFA(language);
   const transitions = dfa.getTransitionsList();
 
   const formatState = (state: DFAState) => dfa.formatState(state);
@@ -73,6 +142,39 @@ export const ResultsPage = () => {
 
         <Descriptions.Item label="Введенная цепочка">{chain}</Descriptions.Item>
       </Descriptions>
+
+      {checkResult && (
+        <div style={{ marginTop: "24px" }}>
+          <Alert
+            type={checkResult.accepted ? "success" : "error"}
+            message={checkResult.message}
+            description={
+              checkResult.accepted ? (
+                <div>
+                  <p>
+                    Финальное состояние:{" "}
+                    {checkResult.finalState
+                      ? formatState(checkResult.finalState)
+                      : "N/A"}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p>
+                    <strong>Причина:</strong> {checkResult.reason}
+                  </p>
+                  {checkResult.finalState && (
+                    <p style={{ marginTop: "8px" }}>
+                      Финальное состояние: {formatState(checkResult.finalState)}
+                    </p>
+                  )}
+                </div>
+              )
+            }
+            showIcon
+          />
+        </div>
+      )}
 
       <Title level={4} style={{ marginTop: "24px" }}>
         Функция переходов ДКА:
