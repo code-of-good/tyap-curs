@@ -29,6 +29,15 @@ export const ResultsPage = () => {
     return new DFA(language);
   }, [language]);
 
+  const traceSteps = useMemo(() => {
+    if (!dfa || !chain) return null;
+    try {
+      return dfa.trace(chain);
+    } catch {
+      return null;
+    }
+  }, [dfa, chain]);
+
   const checkResult = useMemo(() => {
     if (!dfa || !chain || !language) return null;
     try {
@@ -172,6 +181,57 @@ export const ResultsPage = () => {
               )
             }
             showIcon
+          />
+        </div>
+      )}
+
+      {traceSteps && traceSteps.length > 0 && (
+        <div style={{ marginTop: "24px" }}>
+          <Title level={4}>Поэтапная проверка цепочки:</Title>
+          <Table
+            columns={[
+              {
+                title: "Шаг",
+                dataIndex: "step",
+                key: "step",
+                width: 80,
+                align: "center",
+              },
+              {
+                title: "Текущее состояние",
+                dataIndex: "state",
+                key: "state",
+                render: (state: DFAState) => formatState(state),
+              },
+              {
+                title: "Символ",
+                dataIndex: "symbol",
+                key: "symbol",
+                width: 100,
+                align: "center",
+                render: (symbol: string | undefined) => symbol || "-",
+              },
+              {
+                title: "Следующее состояние",
+                dataIndex: "nextState",
+                key: "nextState",
+                render: (nextState: DFAState | null) =>
+                  nextState ? formatState(nextState) : "-",
+              },
+            ]}
+            dataSource={traceSteps.map((step, index) => {
+              const nextStep = traceSteps[index + 1];
+              return {
+                key: index,
+                step: index === 0 ? "Начало" : index,
+                state: step.state,
+                symbol: step.symbol,
+                nextState: nextStep?.state || null,
+              };
+            })}
+            pagination={false}
+            style={{ marginTop: "16px" }}
+            size="small"
           />
         </div>
       )}
