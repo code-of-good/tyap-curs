@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { Input, Button, Card, message, Typography } from "antd";
+import { useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../stores/languageStore";
 
 const { Title } = Typography;
 
 export const ChainChecker = () => {
   const language = useLanguageStore((state) => state.language);
-  const [chain, setChain] = useState("");
+  const setChain = useLanguageStore((state) => state.setChain);
+  const navigate = useNavigate();
+  const [chain, setChainLocal] = useState("");
   const [isChecking, setIsChecking] = useState(false);
 
   const handleCheck = () => {
@@ -21,13 +24,8 @@ export const ChainChecker = () => {
     }
 
     setIsChecking(true);
-    
-    // Здесь будет логика проверки цепочки
-    // Пока просто заглушка
-    setTimeout(() => {
-      setIsChecking(false);
-      message.info("Проверка цепочки (логика будет реализована позже)");
-    }, 500);
+    setChain(chain.trim());
+    navigate("/results");
   };
 
   if (!language) {
@@ -45,7 +43,7 @@ export const ChainChecker = () => {
       
       <Input
         value={chain}
-        onChange={(e) => setChain(e.target.value)}
+        onChange={(e) => setChainLocal(e.target.value)}
         placeholder="например: aabbab"
         style={{ marginBottom: "16px" }}
         onPressEnter={handleCheck}
