@@ -19,10 +19,6 @@ export class DFA {
   private readonly acceptingStateKeys: Set<string> = new Set();
   private readonly transitions: DFATransitions = {};
 
-  // Буфер для хранения последних N символов цепочки (N = длина targetString)
-  // Используется для проверки обязательной конечной подцепочки
-  private readonly suffixBuffer: Map<StateID, string> = new Map();
-
   constructor(config: DFAConfig) {
     this.alphabet = new Set(config.alphabet);
     this.targetString = config.targetString;
@@ -45,15 +41,15 @@ export class DFA {
       }
     }
 
-    // Строим состояния и переходы
-    this.buildStates();
-    this.buildTransitions();
-
     // Определяем начальное состояние
     // progress = 0 означает "еще не начали собирать суффикс"
-    // Для пустого буфера используем специальное значение
     this.startState = { progress: 0, count: 0 };
-    this.suffixBuffer.set(this.stateToKey(this.startState), "");
+
+    // Строим состояния и переходы
+    // Сначала создаем все возможные состояния
+    this.buildStates();
+    // Затем строим переходы
+    this.buildTransitions();
 
     // Определяем конечные состояния (быстрый доступ через Set)
     this.buildAcceptingStates();
@@ -61,12 +57,15 @@ export class DFA {
 
   /**
    * Создает все возможные состояния ДКА
-   * progress теперь означает: длина собранного суффикса (0...targetString.length)
+   * progress означает: сколько символов с конца цепочки совпадают с началом targetString (0...targetString.length)
+   * count означает: количество вхождений targetChar (0...minCount+1, где minCount+1 означает превышение)
+   *
+   * Примечание: создаются все возможные комбинации, даже если некоторые состояния недостижимы.
+   * Это упрощает построение переходов, но может быть оптимизировано для больших автоматов.
    */
   private buildStates(): void {
-    // progress: 0...targetString.length (длина собранного суффикса)
-    // count: 0...minCount+1 (количество целевых символов)
-    // minCount+1 используется для отслеживания превышения кратности
+    // progress: 0...targetString.length (прогресс поиска конечной подцепочки)
+    // count: 0...minCount+1 (количество целевых символов, minCount+1 для отслеживания превышения)
     for (let progress = 0; progress <= this.targetString.length; progress++) {
       for (let count = 0; count <= this.minCount + 1; count++) {
         this.states.push({ progress, count });
@@ -93,39 +92,26 @@ export class DFA {
 
   /**
    * Строит таблицу переходов между состояниями
+   * В чистом ДКА переходы зависят только от текущего состояния и символа
    */
   private buildTransitions(): void {
     for (const state of this.states) {
       const stateKey = this.stateToKey(state);
       this.transitions[stateKey] = {};
 
-      // Получаем текущий буфер для этого состояния
-      const currentBuffer = this.suffixBuffer.get(stateKey) || "";
-
       for (const symbol of this.alphabet) {
-        const nextState = this.calculateNextState(state, currentBuffer, symbol);
+        const nextState = this.calculateNextState(state, symbol);
         this.transitions[stateKey][symbol] = nextState;
-
-        // Вычисляем и сохраняем буфер для следующего состояния
-        const nextStateKey = this.stateToKey(nextState);
-        if (!this.suffixBuffer.has(nextStateKey)) {
-          const nextBuffer = (currentBuffer + symbol).slice(
-            -this.targetString.length
-          );
-          this.suffixBuffer.set(nextStateKey, nextBuffer);
-        }
       }
     }
   }
 
   /**
-   * Вычисляет следующее состояние на основе текущего состояния, буфера и символа
+   * Вычисляет следующее состояние на основе текущего состояния и символа
+   * Использует алгоритм, похожий на KMP, для отслеживания прогресса поиска подцепочки
+   * без хранения буфера - вся информация закодирована в состоянии через progress
    */
-  private calculateNextState(
-    currentState: DFAState,
-    currentBuffer: string,
-    symbol: Symbol
-  ): DFAState {
+  private calculateNextState(currentState: DFAState, symbol: Symbol): DFAState {
     let { count } = currentState;
 
     // 1. Обновляем счетчик целевого символа
@@ -138,34 +124,47 @@ export class DFA {
     }
 
     // 2. Обновляем прогресс сборки суффикса
-    // Добавляем символ к буферу (храним последние N символов, где N = длина targetString)
-    const newBuffer = (currentBuffer + symbol).slice(-this.targetString.length);
-
-    // Проверяем, сколько символов с конца буфера совпадают с началом целевой строки
-    // Это нужно для отслеживания прогресса поиска конечной подцепочки
+    // progress показывает, сколько символов с конца уже совпадают с началом targetString
+    // Используем логику, похожую на KMP, для вычисления нового progress без буфера
     let newProgress = 0;
 
-    // Проверяем от самой длинной возможной подстроки до самой короткой
-    for (
-      let len = Math.min(newBuffer.length, this.targetString.length);
-      len > 0;
-      len--
+    // Если текущий progress < длины целевой строки и символ совпадает со следующим
+    // символом в целевой строке, увеличиваем progress
+    if (
+      currentState.progress < this.targetString.length &&
+      symbol === this.targetString[currentState.progress]
     ) {
-      const suffix = newBuffer.slice(-len);
-      const targetPrefix = this.targetString.slice(0, len);
+      newProgress = currentState.progress + 1;
+    } else {
+      // Иначе ищем максимальный суффикс уже собранной части (targetString[0..progress-1]),
+      // который совпадает с префиксом targetString, и проверяем, может ли symbol
+      // продолжить этот суффикс
+      // Проверяем все возможные длины от progress до 1
+      for (let len = currentState.progress; len > 0; len--) {
+        // Проверяем, совпадает ли префикс targetString длины len-1
+        // с суффиксом уже собранной части длины len-1
+        // Если progress = k, то последние k символов = targetString[0..k-1]
+        // Проверяем, совпадает ли targetString[0..len-2] с targetString[k-len+1..k-1]
+        const prefix = this.targetString.slice(0, len - 1);
+        const suffixStart = currentState.progress - len + 1;
+        const suffix = this.targetString.slice(
+          suffixStart,
+          currentState.progress
+        );
 
-      if (suffix === targetPrefix) {
-        newProgress = len;
-        break;
+        if (prefix === suffix && symbol === this.targetString[len - 1]) {
+          newProgress = len;
+          break;
+        }
+      }
+
+      // Если ничего не нашли, но символ совпадает с первым символом целевой строки
+      if (newProgress === 0 && symbol === this.targetString[0]) {
+        newProgress = 1;
       }
     }
 
-    // Специальный случай: если символ совпадает с первым символом целевой строки
-    if (newProgress === 0 && symbol === this.targetString[0]) {
-      newProgress = 1;
-    }
-
-    // Важно: progress = targetString.length означает, что последние символы буфера
+    // Важно: progress = targetString.length означает, что последние символы
     // полностью совпадают с targetString, т.е. цепочка заканчивается на targetString
 
     return {
@@ -187,10 +186,10 @@ export class DFA {
 
   /**
    * Проверяет, принимает ли автомат данную строку
+   * В чистом ДКА используем только предвычисленные переходы
    */
   accepts(input: string): boolean {
     let currentState = this.startState;
-    let currentBuffer = ""; // Начинаем с пустого буфера
 
     for (const symbol of input) {
       if (!this.alphabet.has(symbol)) {
@@ -198,18 +197,8 @@ export class DFA {
       }
 
       const stateKey = this.stateToKey(currentState);
-
-      // Обновляем буфер
-      currentBuffer = (currentBuffer + symbol).slice(-this.targetString.length);
-
-      // Получаем следующее состояние
+      // Получаем следующее состояние из предвычисленной таблицы переходов
       currentState = this.transitions[stateKey][symbol];
-
-      // Обновляем буфер для нового состояния
-      const newStateKey = this.stateToKey(currentState);
-      if (!this.suffixBuffer.has(newStateKey)) {
-        this.suffixBuffer.set(newStateKey, currentBuffer);
-      }
     }
 
     // Быстрая проверка через Set
@@ -224,18 +213,14 @@ export class DFA {
   trace(input: string): Array<{
     state: DFAState;
     symbol?: string;
-    buffer?: string; // Добавляем буфер для отладки
   }> {
-    const trace: Array<{ state: DFAState; symbol?: string; buffer?: string }> =
-      [
-        {
-          state: this.startState,
-          buffer: "",
-        },
-      ];
+    const trace: Array<{ state: DFAState; symbol?: string }> = [
+      {
+        state: this.startState,
+      },
+    ];
 
     let currentState = this.startState;
-    let currentBuffer = "";
 
     for (const symbol of input) {
       if (!this.alphabet.has(symbol)) {
@@ -243,17 +228,12 @@ export class DFA {
       }
 
       const stateKey = this.stateToKey(currentState);
-
-      // Обновляем буфер
-      currentBuffer = (currentBuffer + symbol).slice(-this.targetString.length);
-
-      // Получаем следующее состояние
+      // Получаем следующее состояние из предвычисленной таблицы переходов
       currentState = this.transitions[stateKey][symbol];
 
       trace.push({
         state: currentState,
         symbol,
-        buffer: currentBuffer,
       });
     }
 
@@ -300,108 +280,35 @@ export class DFA {
 
   /**
    * Форматирует состояние для отображения с номером
-   * Добавляем информацию о буфере для ясности
    */
   formatState(state: DFAState): string {
     const number = this.getStateNumber(state);
-    const stateKey = this.stateToKey(state);
-    const buffer = this.suffixBuffer.get(stateKey) || "";
-    const bufferDisplay = buffer === "" ? "ε" : buffer;
 
     // progress показывает, сколько символов суффикса уже собрано
     const suffixInfo = `${state.progress}/${this.targetString.length}`;
 
-    return `q${number}(прогр: ${suffixInfo}, счет: ${state.count}, буфер: "${bufferDisplay}")`;
+    return `q${number}(прогр: ${suffixInfo}, счет: ${state.count})`;
   }
 
   getTransitionsList(): Array<{
     from: DFAState;
     symbol: string;
     to: DFAState;
-    fromBuffer?: string;
-    toBuffer?: string;
   }> {
     const result = [];
 
     for (const [fromKey, symbolMap] of Object.entries(this.transitions)) {
       const fromState = this.keyToState(fromKey);
-      const fromBuffer = this.suffixBuffer.get(fromKey) || "";
 
       for (const [symbol, toState] of Object.entries(symbolMap)) {
-        const toKey = this.stateToKey(toState);
-        const toBuffer = this.suffixBuffer.get(toKey) || "";
-
         result.push({
           from: fromState,
           symbol,
           to: toState,
-          fromBuffer,
-          toBuffer,
         });
       }
     }
 
     return result;
-  }
-
-  /**
-   * Получить буфер для состояния
-   */
-  getBufferForState(state: DFAState): string {
-    const stateKey = this.stateToKey(state);
-    return this.suffixBuffer.get(stateKey) || "";
-  }
-
-  /**
-   * Получить целевой суффикс (для отображения в интерфейсе)
-   */
-  getTargetString(): string {
-    return this.targetString;
-  }
-
-  /**
-   * Получить целевой символ
-   */
-  getTargetChar(): string {
-    return this.targetChar;
-  }
-
-  /**
-   * Получить минимальное количество
-   */
-  getMinCount(): number {
-    return this.minCount;
-  }
-
-  /**
-   * Получить алфавит
-   */
-  getAlphabet(): Symbol[] {
-    return Array.from(this.alphabet);
-  }
-
-  /**
-   * Проверить, заканчивается ли строка на целевой суффикс
-   * Вспомогательный метод для демонстрации
-   */
-  checkSuffixManually(str: string): boolean {
-    if (str.length < this.targetString.length) {
-      return false;
-    }
-    return str.endsWith(this.targetString);
-  }
-
-  /**
-   * Подсчитать целевые символы в строке
-   * Вспомогательный метод для демонстрации
-   */
-  countTargetChars(str: string): number {
-    let count = 0;
-    for (const char of str) {
-      if (char === this.targetChar) {
-        count++;
-      }
-    }
-    return count;
   }
 }
