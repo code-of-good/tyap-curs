@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Input, Button, Card, message, Typography } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../stores/languageStore";
+import { validateLanguage } from "../utils/validateLanguage";
 
 const { Title } = Typography;
 
@@ -18,14 +19,24 @@ export const ChainChecker = () => {
       return;
     }
 
-    if (!chain.trim()) {
+    const trimmedChain = chain.trim();
+    if (!trimmedChain) {
       message.error("Введите цепочку для проверки");
       return;
     }
 
-    setIsChecking(true);
-    setChain(chain.trim());
-    navigate("/results");
+    try {
+      validateLanguage(language);
+
+      setIsChecking(true);
+      setChain(trimmedChain);
+      navigate("/results");
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : "Ошибка валидации данных"
+      );
+      setIsChecking(false);
+    }
   };
 
   if (!language) {
@@ -40,7 +51,7 @@ export const ChainChecker = () => {
       <div style={{ marginBottom: "16px" }}>
         <Title level={5}>Введите цепочку для проверки:</Title>
       </div>
-      
+
       <Input
         value={chain}
         onChange={(e) => setChainLocal(e.target.value)}
@@ -49,15 +60,9 @@ export const ChainChecker = () => {
         onPressEnter={handleCheck}
       />
 
-      <Button
-        type="primary"
-        onClick={handleCheck}
-        loading={isChecking}
-        block
-      >
+      <Button type="primary" onClick={handleCheck} loading={isChecking} block>
         Проверить
       </Button>
     </Card>
   );
 };
-

@@ -12,7 +12,7 @@ export const LanguageForm = () => {
     alphabet: string;
     requiredSuffix: string;
     selectedSymbol: string;
-    symbolMultiplicity: number;
+    symbolCount: number;
   }) => {
     const alphabet = values.alphabet
       .split("")
@@ -32,7 +32,7 @@ export const LanguageForm = () => {
       alphabet,
       requiredSuffix: values.requiredSuffix,
       selectedSymbol: values.selectedSymbol,
-      symbolMultiplicity: values.symbolMultiplicity,
+      symbolCount: values.symbolCount,
     };
 
     setLanguage(language);
@@ -49,7 +49,7 @@ export const LanguageForm = () => {
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        initialValues={{ symbolMultiplicity: 1 }}
+        initialValues={{ symbolCount: 1 }}
       >
         <Form.Item
           label="Алфавит (введите символы без пробелов)"
@@ -79,7 +79,7 @@ export const LanguageForm = () => {
 
         <Form.Item
           label="Кратность вхождения символа"
-          name="symbolMultiplicity"
+          name="symbolCount"
           rules={[
             { required: true, message: "Пожалуйста, укажите кратность" },
             {
