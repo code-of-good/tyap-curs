@@ -154,13 +154,6 @@ export class DFA {
   }
 
   /**
-   * Преобразует состояние в строковый ключ
-   */
-  private stateToKey(state: DFAState): StateID {
-    return `q_${state.progress}_${state.count}`;
-  }
-
-  /**
    * Преобразует строковый ключ в состояние
    */
   private keyToState(key: StateID): DFAState {
@@ -255,9 +248,47 @@ export class DFA {
   /**
    * Проверяет, является ли состояние принимающим
    */
-  private isAcceptingState(state: DFAState): boolean {
+  isAcceptingState(state: DFAState): boolean {
     const stateKey = this.stateToKey(state);
     return this.acceptingStateKeys.has(stateKey);
+  }
+
+  /**
+   * Возвращает все состояния ДКА
+   */
+  getStates(): DFAState[] {
+    return [...this.states];
+  }
+
+  /**
+   * Возвращает начальное состояние
+   */
+  getStartState(): DFAState {
+    return this.startState;
+  }
+
+  /**
+   * Преобразует состояние в строковый ключ (публичный метод)
+   */
+  stateToKey(state: DFAState): StateID {
+    return `q_${state.progress}_${state.count}`;
+  }
+
+  /**
+   * Возвращает номер состояния в массиве состояний
+   */
+  getStateNumber(state: DFAState): number {
+    return this.states.findIndex(
+      (s) => s.progress === state.progress && s.count === state.count
+    );
+  }
+
+  /**
+   * Форматирует состояние для отображения с номером
+   */
+  formatState(state: DFAState): string {
+    const number = this.getStateNumber(state);
+    return `q${number}(${state.progress}, ${state.count})`;
   }
 
   /**

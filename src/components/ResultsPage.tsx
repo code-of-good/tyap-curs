@@ -1,14 +1,17 @@
-import { Card, Typography, Descriptions, Button, Table } from "antd";
+import { useState } from "react";
+import { Card, Typography, Descriptions, Button, Table, Tabs } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../stores/languageStore";
 import { DFA } from "../classes/DFA";
 import type { DFAState } from "../types/dfa";
+import { DFAGraph } from "./DFAGraph";
 
 const { Title } = Typography;
 
 export const ResultsPage = () => {
   const language = useLanguageStore((state) => state.language);
   const chain = useLanguageStore((state) => state.chain);
+  const [activeTab, setActiveTab] = useState<string>("table");
 
   const navigate = useNavigate();
 
@@ -19,8 +22,7 @@ export const ResultsPage = () => {
   const dfa = new DFA(language);
   const transitions = dfa.getTransitionsList();
 
-  const formatState = (state: DFAState) =>
-    `q(${state.progress}, ${state.count})`;
+  const formatState = (state: DFAState) => dfa.formatState(state);
 
   const columns = [
     {
@@ -45,7 +47,7 @@ export const ResultsPage = () => {
   return (
     <Card
       title="Результаты проверки"
-      style={{ maxWidth: "600px", margin: "20px auto" }}
+      style={{ maxWidth: "1200px", margin: "20px auto" }}
       extra={
         <Button onClick={() => navigate("/check")}>Вернуться к проверке</Button>
       }
@@ -73,19 +75,40 @@ export const ResultsPage = () => {
       </Descriptions>
 
       <Title level={4} style={{ marginTop: "24px" }}>
-        Таблица переходов:
+        Функция переходов ДКА:
       </Title>
 
-      <Table
-        columns={columns}
-        dataSource={transitions.map((transition, index) => ({
-          key: index,
-          from: transition.from,
-          symbol: transition.symbol,
-          to: transition.to,
-        }))}
-        pagination={false}
-        style={{ marginTop: "16px" }}
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: "table",
+            label: "Таблица",
+            children: (
+              <Table
+                columns={columns}
+                dataSource={transitions.map((transition, index) => ({
+                  key: index,
+                  from: transition.from,
+                  symbol: transition.symbol,
+                  to: transition.to,
+                }))}
+                pagination={false}
+                style={{ marginTop: "16px" }}
+              />
+            ),
+          },
+          {
+            key: "graph",
+            label: "Граф",
+            children: (
+              <div style={{ marginTop: "16px" }}>
+                <DFAGraph dfa={dfa} />
+              </div>
+            ),
+          },
+        ]}
       />
     </Card>
   );
