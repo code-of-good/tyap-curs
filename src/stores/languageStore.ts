@@ -1,10 +1,10 @@
 import { create } from "zustand";
-import type { LanguageDescription } from "../types/language";
+import type { DFAConfig } from "../types/dfa";
 
 interface LanguageStore {
-  language: LanguageDescription | null;
+  language: DFAConfig | null;
   chain: string | null;
-  setLanguage: (language: LanguageDescription) => void;
+  setLanguage: (language: DFAConfig) => void;
   setChain: (chain: string) => void;
 }
 

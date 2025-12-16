@@ -1,22 +1,22 @@
-import type { LanguageDescription } from "../types/language";
+import type { DFAConfig } from "../types/dfa";
 
-export function validateLanguage(language: LanguageDescription): void {
-  const { alphabet, requiredSuffix, selectedSymbol, symbolCount } = language;
+export function validateLanguage(language: DFAConfig): void {
+  const { alphabet, targetString, targetChar, minCount } = language;
 
   if (!Array.isArray(alphabet) || alphabet.length === 0) {
     throw new Error("Алфавит должен быть непустым массивом");
   }
 
-  if (typeof requiredSuffix !== "string") {
+  if (typeof targetString !== "string") {
+    console.log(targetString);
     throw new Error("Суффикс должен быть строкой");
   }
 
-  if (!alphabet.includes(selectedSymbol)) {
+  if (!alphabet.includes(targetChar)) {
     throw new Error("Символ должен быть в алфавите");
   }
 
-  if (!Number.isInteger(symbolCount) || symbolCount < 1) {
+  if (!Number.isInteger(minCount) || minCount < 1) {
     throw new Error("Кратность должна быть целым числом >= 1");
   }
 }
-

@@ -1,7 +1,7 @@
 import { Form, Input, InputNumber, Button, Card, message } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../stores/languageStore";
-import type { LanguageDescription } from "../types/language";
+import type { DFAConfig } from "../types/dfa";
 
 export const LanguageForm = () => {
   const setLanguage = useLanguageStore((state) => state.setLanguage);
@@ -28,11 +28,11 @@ export const LanguageForm = () => {
       return;
     }
 
-    const language: LanguageDescription = {
+    const language: DFAConfig = {
       alphabet,
-      requiredSuffix: values.requiredSuffix,
-      selectedSymbol: values.selectedSymbol,
-      symbolCount: values.symbolCount,
+      targetString: values.requiredSuffix,
+      targetChar: values.selectedSymbol,
+      minCount: values.symbolCount,
     };
 
     setLanguage(language);
