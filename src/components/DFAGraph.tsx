@@ -20,21 +20,17 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
     const transitions = dfa.getTransitionsList();
     const startState = dfa.getStartState();
 
-    // Получаем requiredCount из принимающих состояний (они имеют count = requiredCount)
     const acceptingStates = states.filter((state) => dfa.isAcceptingState(state));
     const requiredCount =
       acceptingStates.length > 0 ? acceptingStates[0].count : 0;
 
-    // Фильтруем состояния: не показываем состояния с count = requiredCount + 1
     const visibleStates = states.filter(
       (state) => state.count <= requiredCount
     );
 
-    // Создаем узлы только для видимых состояний
     const nodeMap = new Map<string, Node>();
     const nodePositions = new Map<string, { x: number; y: number }>();
 
-    // Располагаем узлы в сетке
     const statesPerRow = Math.ceil(Math.sqrt(visibleStates.length));
     visibleStates.forEach((state, index) => {
       const stateKey = dfa.stateToKey(state);
@@ -76,7 +72,6 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
       });
     });
 
-    // Фильтруем переходы: показываем только те, где оба состояния видимы
     const visibleStateKeys = new Set(
       visibleStates.map((state) => dfa.stateToKey(state))
     );
@@ -86,8 +81,6 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
         visibleStateKeys.has(dfa.stateToKey(transition.to))
     );
 
-    // Создаем отдельное ребро для каждого перехода, чтобы стрелки не сливались
-    // Подсчитываем количество переходов между одними и теми же состояниями
     const transitionCountByPair = new Map<string, number>();
     visibleTransitions.forEach((transition) => {
       const fromKey = dfa.stateToKey(transition.from);
@@ -99,17 +92,14 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
       );
     });
 
-    // Создаем рёбра с разными handle позициями для каждого перехода
     const edgesList: Edge[] = [];
     const edgeIndexByPair = new Map<string, number>();
 
-    // Определяем handle позиции для распределения рёбер
     const handlePositions = [
       { source: "top", target: "top" },
       { source: "right", target: "right" },
       { source: "bottom", target: "bottom" },
       { source: "left", target: "left" },
-      // Дополнительные позиции для большего количества рёбер
       { source: "top", target: "right" },
       { source: "right", target: "bottom" },
       { source: "bottom", target: "left" },
@@ -130,7 +120,6 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
       let edgeType: "smoothstep" | "bezier" = "smoothstep";
 
       if (isSelfLoop) {
-        // Для петель используем bezier с разными позициями для разных петель
         edgeType = "bezier";
         const loopHandles = [
           { source: "right", target: "right" },
@@ -142,15 +131,12 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
         sourceHandle = loopHandle.source;
         targetHandle = loopHandle.target;
       } else if (totalTransitions > 1) {
-        // Для множественных переходов используем разные handle позиции
-        // Распределяем равномерно по доступным позициям
         const handleIndex = currentIndex % handlePositions.length;
         const handles = handlePositions[handleIndex];
         sourceHandle = handles.source;
         targetHandle = handles.target;
         edgeType = "smoothstep";
       } else {
-        // Для одиночных переходов используем стандартные позиции
         edgeType = "smoothstep";
       }
 
