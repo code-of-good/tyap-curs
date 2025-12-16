@@ -60,9 +60,9 @@ export const ResultsPage = () => {
               `не найдена обязательная конечная подцепочка "${language.targetString}" (прогресс: ${finalState.progress}/${language.targetString.length})`
             );
           }
-          if (finalState.count !== language.minCount) {
+          if (finalState.count !== language.requiredCount) {
             reasons.push(
-              `символ "${language.targetChar}" встретился ${finalState.count} раз(а), требуется ${language.minCount}`
+              `символ "${language.targetChar}" встретился ${finalState.count} раз(а), требуется ${language.requiredCount}`
             );
           }
           reason = reasons.join("; ");
@@ -146,7 +146,7 @@ export const ResultsPage = () => {
         </Descriptions.Item>
 
         <Descriptions.Item label="Кратность вхождения символа">
-          {language.minCount}
+          {language.requiredCount}
         </Descriptions.Item>
 
         <Descriptions.Item label="Введенная цепочка">{chain}</Descriptions.Item>

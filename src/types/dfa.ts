@@ -5,7 +5,7 @@ export type StateID = string;
 
 export interface DFAState {
   progress: number; // прогресс поиска целевой строки (0...target.length)
-  count: number; // количество встреч целевого символа (0...minCount)
+  count: number; // количество встреч целевого символа (0...requiredCount+1)
 }
 
 export interface DFATransitions {
@@ -18,7 +18,7 @@ export interface DFAConfig {
   alphabet: Symbol[];
   targetString: string;
   targetChar: Symbol;
-  minCount: number;
+  requiredCount: number; // кратность вхождения (точное количество)
 }
 
 export class InvalidSymbolError extends Error {

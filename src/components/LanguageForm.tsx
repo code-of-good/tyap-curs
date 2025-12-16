@@ -32,7 +32,7 @@ export const LanguageForm = () => {
       alphabet,
       targetString: values.requiredSuffix,
       targetChar: values.selectedSymbol,
-      minCount: values.symbolCount,
+      requiredCount: values.symbolCount,
     };
 
     setLanguage(language);

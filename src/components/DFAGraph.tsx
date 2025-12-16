@@ -20,13 +20,23 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
     const transitions = dfa.getTransitionsList();
     const startState = dfa.getStartState();
 
-    // Создаем узлы для каждого состояния
+    // Получаем requiredCount из принимающих состояний (они имеют count = requiredCount)
+    const acceptingStates = states.filter((state) => dfa.isAcceptingState(state));
+    const requiredCount =
+      acceptingStates.length > 0 ? acceptingStates[0].count : 0;
+
+    // Фильтруем состояния: не показываем состояния с count = requiredCount + 1
+    const visibleStates = states.filter(
+      (state) => state.count <= requiredCount
+    );
+
+    // Создаем узлы только для видимых состояний
     const nodeMap = new Map<string, Node>();
     const nodePositions = new Map<string, { x: number; y: number }>();
 
     // Располагаем узлы в сетке
-    const statesPerRow = Math.ceil(Math.sqrt(states.length));
-    states.forEach((state, index) => {
+    const statesPerRow = Math.ceil(Math.sqrt(visibleStates.length));
+    visibleStates.forEach((state, index) => {
       const stateKey = dfa.stateToKey(state);
       const row = Math.floor(index / statesPerRow);
       const col = index % statesPerRow;
@@ -66,10 +76,20 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
       });
     });
 
+    // Фильтруем переходы: показываем только те, где оба состояния видимы
+    const visibleStateKeys = new Set(
+      visibleStates.map((state) => dfa.stateToKey(state))
+    );
+    const visibleTransitions = transitions.filter(
+      (transition) =>
+        visibleStateKeys.has(dfa.stateToKey(transition.from)) &&
+        visibleStateKeys.has(dfa.stateToKey(transition.to))
+    );
+
     // Создаем отдельное ребро для каждого перехода, чтобы стрелки не сливались
     // Подсчитываем количество переходов между одними и теми же состояниями
     const transitionCountByPair = new Map<string, number>();
-    transitions.forEach((transition) => {
+    visibleTransitions.forEach((transition) => {
       const fromKey = dfa.stateToKey(transition.from);
       const toKey = dfa.stateToKey(transition.to);
       const pairKey = `${fromKey}-${toKey}`;
@@ -96,7 +116,7 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
       { source: "left", target: "top" },
     ];
 
-    transitions.forEach((transition) => {
+    visibleTransitions.forEach((transition) => {
       const fromKey = dfa.stateToKey(transition.from);
       const toKey = dfa.stateToKey(transition.to);
       const pairKey = `${fromKey}-${toKey}`;

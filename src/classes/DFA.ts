@@ -12,7 +12,7 @@ export class DFA {
   private readonly alphabet: Set<Symbol>;
   private readonly targetString: string;
   private readonly targetChar: Symbol;
-  private readonly minCount: number;
+  private readonly requiredCount: number; // кратность вхождения (точное количество)
 
   private readonly states: DFAState[] = [];
   private readonly startState: DFAState;
@@ -23,7 +23,7 @@ export class DFA {
     this.alphabet = new Set(config.alphabet);
     this.targetString = config.targetString;
     this.targetChar = config.targetChar;
-    this.minCount = config.minCount;
+    this.requiredCount = config.requiredCount;
 
     // Проверяем, что целевой символ есть в алфавите
     if (!this.alphabet.has(this.targetChar)) {
@@ -58,16 +58,17 @@ export class DFA {
   /**
    * Создает все возможные состояния ДКА
    * progress означает: сколько символов с конца цепочки совпадают с началом targetString (0...targetString.length)
-   * count означает: количество вхождений targetChar (0...minCount+1, где minCount+1 означает превышение)
+   * count означает: количество вхождений targetChar (0...requiredCount+1, где requiredCount+1 означает превышение)
    *
    * Примечание: создаются все возможные комбинации, даже если некоторые состояния недостижимы.
    * Это упрощает построение переходов, но может быть оптимизировано для больших автоматов.
    */
   private buildStates(): void {
     // progress: 0...targetString.length (прогресс поиска конечной подцепочки)
-    // count: 0...minCount+1 (количество целевых символов, minCount+1 для отслеживания превышения)
+    // count: 0...requiredCount+1 (количество целевых символов, requiredCount+1 для отслеживания превышения)
+    // Нужно отслеживать превышение, иначе цепочки с превышением могут быть приняты
     for (let progress = 0; progress <= this.targetString.length; progress++) {
-      for (let count = 0; count <= this.minCount + 1; count++) {
+      for (let count = 0; count <= this.requiredCount + 1; count++) {
         this.states.push({ progress, count });
       }
     }
@@ -82,7 +83,7 @@ export class DFA {
       // 1. Иметь progress = targetString.length (цепочка заканчивается на обязательную подцепочку)
       // 2. Иметь ровно нужное количество targetChar (кратность означает точное количество вхождений)
       const hasFullSuffix = state.progress === this.targetString.length;
-      const hasExactCount = state.count === this.minCount;
+      const hasExactCount = state.count === this.requiredCount;
 
       if (hasFullSuffix && hasExactCount) {
         this.acceptingStateKeys.add(this.stateToKey(state));
@@ -115,12 +116,12 @@ export class DFA {
     let { count } = currentState;
 
     // 1. Обновляем счетчик целевого символа
-    // Если count уже достиг minCount, увеличиваем до minCount+1 для отслеживания превышения
+    // Если count уже достиг requiredCount, увеличиваем до requiredCount+1 для отслеживания превышения
     if (symbol === this.targetChar) {
-      if (count <= this.minCount) {
+      if (count <= this.requiredCount) {
         count = count + 1;
       }
-      // Если count уже minCount+1, оставляем как есть (превышение уже зафиксировано)
+      // Если count уже requiredCount+1, оставляем как есть (превышение уже зафиксировано)
     }
 
     // 2. Обновляем прогресс сборки суффикса

@@ -1,7 +1,7 @@
 import type { DFAConfig } from "../types/dfa";
 
 export function validateLanguage(language: DFAConfig): void {
-  const { alphabet, targetString, targetChar, minCount } = language;
+  const { alphabet, targetString, targetChar, requiredCount } = language;
 
   if (!Array.isArray(alphabet) || alphabet.length === 0) {
     throw new Error("Алфавит должен быть непустым массивом");
@@ -16,7 +16,7 @@ export function validateLanguage(language: DFAConfig): void {
     throw new Error("Символ должен быть в алфавите");
   }
 
-  if (!Number.isInteger(minCount) || minCount < 1) {
+  if (!Number.isInteger(requiredCount) || requiredCount < 1) {
     throw new Error("Кратность должна быть целым числом >= 1");
   }
 }
