@@ -20,19 +20,11 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
     const transitions = dfa.getTransitionsList();
     const startState = dfa.getStartState();
 
-    const acceptingStates = states.filter((state) => dfa.isAcceptingState(state));
-    const requiredCount =
-      acceptingStates.length > 0 ? acceptingStates[0].count : 0;
-
-    const visibleStates = states.filter(
-      (state) => state.count <= requiredCount
-    );
-
     const nodeMap = new Map<string, Node>();
     const nodePositions = new Map<string, { x: number; y: number }>();
 
-    const statesPerRow = Math.ceil(Math.sqrt(visibleStates.length));
-    visibleStates.forEach((state, index) => {
+    const statesPerRow = Math.ceil(Math.sqrt(states.length));
+    states.forEach((state, index) => {
       const stateKey = dfa.stateToKey(state);
       const row = Math.floor(index / statesPerRow);
       const col = index % statesPerRow;
@@ -72,14 +64,7 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
       });
     });
 
-    const visibleStateKeys = new Set(
-      visibleStates.map((state) => dfa.stateToKey(state))
-    );
-    const visibleTransitions = transitions.filter(
-      (transition) =>
-        visibleStateKeys.has(dfa.stateToKey(transition.from)) &&
-        visibleStateKeys.has(dfa.stateToKey(transition.to))
-    );
+    const visibleTransitions = transitions;
 
     const transitionCountByPair = new Map<string, number>();
     visibleTransitions.forEach((transition) => {

@@ -143,14 +143,11 @@ export class DFA {
   }
 
   trace(input: string): Array<{
-    state: DFAState;
-    symbol?: string;
+    from: DFAState;
+    symbol: string;
+    to: DFAState;
   }> {
-    const trace: Array<{ state: DFAState; symbol?: string }> = [
-      {
-        state: this.startState,
-      },
-    ];
+    const trace: Array<{ from: DFAState; symbol: string; to: DFAState }> = [];
 
     let currentState = this.startState;
 
@@ -160,12 +157,15 @@ export class DFA {
       }
 
       const stateKey = this.stateToKey(currentState);
-      currentState = this.transitions[stateKey][symbol];
+      const nextState = this.transitions[stateKey][symbol];
 
       trace.push({
-        state: currentState,
+        from: currentState,
         symbol,
+        to: nextState,
       });
+
+      currentState = nextState;
     }
 
     return trace;

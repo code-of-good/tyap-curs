@@ -43,7 +43,7 @@ export const ResultsPage = () => {
     try {
       const isAccepted = dfa.accepts(chain);
       const trace = dfa.trace(chain);
-      const finalState = trace[trace.length - 1]?.state;
+      const finalState = trace[trace.length - 1]?.to || dfa.getStartState();
 
       if (isAccepted) {
         return {
@@ -57,7 +57,7 @@ export const ResultsPage = () => {
           const reasons: string[] = [];
           if (finalState.progress !== language.targetString.length) {
             reasons.push(
-              `не найдена обязательная конечная подцепочка "${language.targetString}" (прогресс: ${finalState.progress}/${language.targetString.length})`
+              `не найдена обязательная конечная подцепочка "${language.targetString}" (  есс: ${finalState.progress}/${language.targetString.length})`
             );
           }
           if (finalState.count !== language.requiredCount) {
@@ -126,9 +126,7 @@ export const ResultsPage = () => {
     <Card
       title="Результаты проверки"
       style={{ maxWidth: "1200px", margin: "20px auto" }}
-      extra={
-        <Button onClick={() => navigate("/check")}>Вернуться к проверке</Button>
-      }
+      extra={<Button onClick={() => navigate("/")}>Вернуться к форме</Button>}
     >
       <Title level={4}>Введенные данные:</Title>
 
@@ -219,16 +217,13 @@ export const ResultsPage = () => {
                   nextState ? formatState(nextState) : "-",
               },
             ]}
-            dataSource={traceSteps.map((step, index) => {
-              const nextStep = traceSteps[index + 1];
-              return {
-                key: index,
-                step: index === 0 ? "Начало" : index,
-                state: step.state,
-                symbol: step.symbol,
-                nextState: nextStep?.state || null,
-              };
-            })}
+            dataSource={traceSteps.map((step, index) => ({
+              key: index,
+              step: index + 1,
+              state: step.from,
+              symbol: step.symbol,
+              nextState: step.to,
+            }))}
             pagination={false}
             style={{ marginTop: "16px" }}
             size="small"

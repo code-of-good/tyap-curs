@@ -1,10 +1,18 @@
-import { Form, Input, InputNumber, Button, Card, message } from "antd";
+import { Form, Input, InputNumber, Button, Card } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../stores/languageStore";
 import type { DFAConfig } from "../types/dfa";
+import { validateLanguage } from "../utils/validateLanguage";
+import {
+  showError,
+  showSuccess,
+  showValidationError,
+  MESSAGES,
+} from "../utils/messages";
 
 export const LanguageForm = () => {
   const setLanguage = useLanguageStore((state) => state.setLanguage);
+  const setChain = useLanguageStore((state) => state.setChain);
   const navigate = useNavigate();
   const [form] = Form.useForm();
 
@@ -13,18 +21,19 @@ export const LanguageForm = () => {
     requiredSuffix: string;
     selectedSymbol: string;
     symbolCount: number;
+    chain: string;
   }) => {
     const alphabet = values.alphabet
       .split("")
       .filter((char) => char.trim() !== "");
 
     if (alphabet.length === 0) {
-      message.error("Алфавит не может быть пустым");
+      showError(MESSAGES.EMPTY_ALPHABET);
       return;
     }
 
     if (!values.selectedSymbol || !alphabet.includes(values.selectedSymbol)) {
-      message.error("Выбранный символ должен принадлежать алфавиту");
+      showError(MESSAGES.SYMBOL_NOT_IN_ALPHABET);
       return;
     }
 
@@ -35,9 +44,24 @@ export const LanguageForm = () => {
       requiredCount: values.symbolCount,
     };
 
+    try {
+      validateLanguage(language);
+    } catch (error) {
+      showValidationError(error);
+      return;
+    }
+
     setLanguage(language);
-    message.success("Описание языка сохранено");
-    navigate("/check");
+
+    const trimmedChain = values.chain.trim();
+    if (!trimmedChain) {
+      showError(MESSAGES.EMPTY_CHAIN);
+      return;
+    }
+
+    setChain(trimmedChain);
+    showSuccess(MESSAGES.LANGUAGE_SAVED);
+    navigate("/results");
   };
 
   return (
@@ -92,9 +116,22 @@ export const LanguageForm = () => {
           <InputNumber min={1} style={{ width: "100%" }} />
         </Form.Item>
 
+        <Form.Item
+          label="Цепочка для проверки"
+          name="chain"
+          rules={[
+            {
+              required: true,
+              message: "Пожалуйста, введите цепочку для проверки",
+            },
+          ]}
+        >
+          <Input placeholder="например: aabbab" />
+        </Form.Item>
+
         <Form.Item>
           <Button type="primary" htmlType="submit" block>
-            Сохранить описание языка
+            Сохранить и проверить
           </Button>
         </Form.Item>
       </Form>
