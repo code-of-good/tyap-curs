@@ -102,12 +102,26 @@ export const ResultsPage = () => {
 
   const formatState = (state: DFAState) => dfa.formatState(state);
 
+  const renderState = (state: DFAState) => {
+    const isOverflow = dfa.isOverflowState(state);
+    return (
+      <span
+        style={{
+          color: isOverflow ? "#DC143C" : "inherit",
+          fontWeight: isOverflow ? "bold" : "normal",
+        }}
+      >
+        {formatState(state)}
+      </span>
+    );
+  };
+
   const columns = [
     {
       title: "Из состояния",
       dataIndex: "from",
       key: "from",
-      render: (state: DFAState) => formatState(state),
+      render: (state: DFAState) => renderState(state),
     },
     {
       title: "Символ",
@@ -118,7 +132,7 @@ export const ResultsPage = () => {
       title: "В состояние",
       dataIndex: "to",
       key: "to",
-      render: (state: DFAState) => formatState(state),
+      render: (state: DFAState) => renderState(state),
     },
   ];
 
@@ -161,7 +175,7 @@ export const ResultsPage = () => {
                   <p>
                     Финальное состояние:{" "}
                     {checkResult.finalState
-                      ? formatState(checkResult.finalState)
+                      ? renderState(checkResult.finalState)
                       : "N/A"}
                   </p>
                 </div>
@@ -172,7 +186,7 @@ export const ResultsPage = () => {
                   </p>
                   {checkResult.finalState && (
                     <p style={{ marginTop: "8px" }}>
-                      Финальное состояние: {formatState(checkResult.finalState)}
+                      Финальное состояние: {renderState(checkResult.finalState)}
                     </p>
                   )}
                 </div>
@@ -199,7 +213,7 @@ export const ResultsPage = () => {
                 title: "Текущее состояние",
                 dataIndex: "state",
                 key: "state",
-                render: (state: DFAState) => formatState(state),
+                render: (state: DFAState) => renderState(state),
               },
               {
                 title: "Символ",
@@ -214,7 +228,7 @@ export const ResultsPage = () => {
                 dataIndex: "nextState",
                 key: "nextState",
                 render: (nextState: DFAState | null) =>
-                  nextState ? formatState(nextState) : "-",
+                  nextState ? renderState(nextState) : "-",
               },
             ]}
             dataSource={traceSteps.map((step, index) => ({
@@ -224,6 +238,16 @@ export const ResultsPage = () => {
               symbol: step.symbol,
               nextState: step.to,
             }))}
+            onRow={(record) => {
+              const hasOverflow =
+                dfa.isOverflowState(record.state) ||
+                (record.nextState && dfa.isOverflowState(record.nextState));
+              return {
+                style: {
+                  backgroundColor: hasOverflow ? "#FFE4E1" : undefined,
+                },
+              };
+            }}
             pagination={false}
             style={{ marginTop: "16px" }}
             size="small"
@@ -251,6 +275,16 @@ export const ResultsPage = () => {
                   symbol: transition.symbol,
                   to: transition.to,
                 }))}
+                onRow={(record) => {
+                  const hasOverflow =
+                    dfa.isOverflowState(record.from) ||
+                    dfa.isOverflowState(record.to);
+                  return {
+                    style: {
+                      backgroundColor: hasOverflow ? "#FFE4E1" : undefined,
+                    },
+                  };
+                }}
                 pagination={false}
                 style={{ marginTop: "16px" }}
               />

@@ -14,6 +14,7 @@ export class DFA {
   private readonly requiredCount: number;
 
   private readonly states: DFAState[] = [];
+  private readonly stateToNumber: Map<string, number> = new Map();
   private readonly startState: DFAState;
   private readonly acceptingStateKeys: Set<string> = new Set();
   private readonly transitions: DFATransitions = {};
@@ -23,6 +24,7 @@ export class DFA {
     this.targetString = config.targetString;
     this.targetChar = config.targetChar;
     this.requiredCount = config.requiredCount;
+    this.startState = { progress: 0, count: 0 };
 
     if (!this.alphabet.has(this.targetChar)) {
       throw new Error(
@@ -38,8 +40,6 @@ export class DFA {
       }
     }
 
-    this.startState = { progress: 0, count: 0 };
-
     this.buildStates();
     this.buildTransitions();
     this.buildAcceptingStates();
@@ -48,7 +48,9 @@ export class DFA {
   private buildStates(): void {
     for (let progress = 0; progress <= this.targetString.length; progress++) {
       for (let count = 0; count <= this.requiredCount + 1; count++) {
-        this.states.push({ progress, count });
+        const state = { progress, count };
+        this.states.push(state);
+        this.stateToNumber.set(this.stateToKey(state), this.states.length - 1);
       }
     }
   }
@@ -126,13 +128,17 @@ export class DFA {
     };
   }
 
+  private validateSymbol(symbol: string): void {
+    if (!this.alphabet.has(symbol)) {
+      throw new InvalidSymbolError(symbol);
+    }
+  }
+
   accepts(input: string): boolean {
     let currentState = this.startState;
 
     for (const symbol of input) {
-      if (!this.alphabet.has(symbol)) {
-        throw new InvalidSymbolError(symbol);
-      }
+      this.validateSymbol(symbol);
 
       const stateKey = this.stateToKey(currentState);
       currentState = this.transitions[stateKey][symbol];
@@ -152,9 +158,7 @@ export class DFA {
     let currentState = this.startState;
 
     for (const symbol of input) {
-      if (!this.alphabet.has(symbol)) {
-        break;
-      }
+      this.validateSymbol(symbol);
 
       const stateKey = this.stateToKey(currentState);
       const nextState = this.transitions[stateKey][symbol];
@@ -176,6 +180,10 @@ export class DFA {
     return this.acceptingStateKeys.has(stateKey);
   }
 
+  isOverflowState(state: DFAState): boolean {
+    return state.count > this.requiredCount;
+  }
+
   getStates(): DFAState[] {
     return [...this.states];
   }
@@ -189,9 +197,8 @@ export class DFA {
   }
 
   getStateNumber(state: DFAState): number {
-    return this.states.findIndex(
-      (s) => s.progress === state.progress && s.count === state.count
-    );
+    const stateKey = this.stateToKey(state);
+    return this.stateToNumber.get(stateKey) ?? -1;
   }
 
   formatState(state: DFAState): string {

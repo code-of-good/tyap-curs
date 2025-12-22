@@ -37,6 +37,7 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
         state.progress === startState.progress &&
         state.count === startState.count;
       const isAccepting = dfa.isAcceptingState(state);
+      const isOverflow = dfa.isOverflowState(state);
 
       nodeMap.set(stateKey, {
         id: stateKey,
@@ -46,8 +47,16 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
           label: isAccepting ? "qf" : dfa.formatState(state),
         },
         style: {
-          background: isAccepting ? "#90EE90" : isStart ? "#87CEEB" : "#fff",
-          border: isAccepting
+          background: isOverflow
+            ? "#FFB6C1"
+            : isAccepting
+            ? "#90EE90"
+            : isStart
+            ? "#87CEEB"
+            : "#fff",
+          border: isOverflow
+            ? "3px solid #DC143C"
+            : isAccepting
             ? "3px solid #228B22"
             : isStart
             ? "3px solid #4682B4"
@@ -59,7 +68,7 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
           alignItems: "center",
           justifyContent: "center",
           fontSize: "12px",
-          fontWeight: isStart || isAccepting ? "bold" : "normal",
+          fontWeight: isStart || isAccepting || isOverflow ? "bold" : "normal",
         },
       });
     });
