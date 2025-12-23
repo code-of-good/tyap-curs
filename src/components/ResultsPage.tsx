@@ -8,6 +8,7 @@ import {
   Tabs,
   Alert,
   Popover,
+  Space,
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../stores/languageStore";
@@ -15,7 +16,11 @@ import { DFA } from "../classes/DFA";
 import type { DFAState } from "../types/dfa";
 import { DFAGraph } from "./DFAGraph";
 import { InvalidSymbolError } from "../types/dfa";
-import { QuestionCircleOutlined } from "@ant-design/icons";
+import {
+  QuestionCircleOutlined,
+  StepForwardOutlined,
+  PlayCircleOutlined,
+} from "@ant-design/icons";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -23,7 +28,9 @@ export const ResultsPage = () => {
   const language = useLanguageStore((state) => state.language);
   const chain = useLanguageStore((state) => state.chain);
   const [activeTab, setActiveTab] = useState<string>("table");
+  const [traceTab, setTraceTab] = useState<string>("all");
   const [helpVisible, setHelpVisible] = useState<boolean>(false);
+  const [currentStep, setCurrentStep] = useState<number>(0);
 
   const navigate = useNavigate();
 
@@ -97,15 +104,35 @@ export const ResultsPage = () => {
     }
   }, [dfa, chain, language]);
 
-  if (!language || !chain || !dfa) {
-    return null;
-  }
+  const handleNextStep = () => {
+    if (traceSteps && currentStep < traceSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
 
-  const transitions = dfa.getTransitionsList();
+  const handlePrevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
 
-  const formatState = (state: DFAState) => dfa.formatState(state);
+  const handleResetSteps = () => {
+    setCurrentStep(0);
+  };
+
+  const handleCompleteSteps = () => {
+    if (traceSteps) {
+      setCurrentStep(traceSteps.length - 1);
+    }
+  };
+
+  const formatState = (state: DFAState) => {
+    if (!dfa) return "";
+    return dfa.formatState(state);
+  };
 
   const renderState = (state: DFAState) => {
+    if (!dfa) return null;
     const isOverflow = dfa.isOverflowState(state);
     return (
       <span
@@ -159,11 +186,24 @@ export const ResultsPage = () => {
         </li>
         <li>
           <Text strong>Поэтапная проверка:</Text> показывает каждый шаг
-          обработки цепочки
+          обработки цепочки (в двух режимах)
         </li>
         <li>
           <Text strong>Функция переходов:</Text> содержит таблицу и граф
           переходов ДКА
+        </li>
+      </ul>
+
+      <Paragraph>
+        <Text strong>Режимы проверки:</Text>
+      </Paragraph>
+      <ul>
+        <li>
+          <Text strong>Все шаги:</Text> показывает полную таблицу всех шагов
+        </li>
+        <li>
+          <Text strong>По шагам:</Text> позволяет пошагово просматривать процесс
+          проверки
         </li>
       </ul>
 
@@ -176,11 +216,11 @@ export const ResultsPage = () => {
         </li>
         <li>
           <Text>count</Text> - количество встреченных символов "
-          {language.targetChar}"
+          {language?.targetChar || ""}"
         </li>
         <li>
           <Text>progress</Text> - прогресс поиска подцепочки "
-          {language.targetString || "..."}"
+          {language?.targetString || "..."}"
         </li>
         <li style={{ color: "#DC143C", fontWeight: "bold" }}>
           Красный цвет - состояние переполнения (цель недостижима)
@@ -193,13 +233,210 @@ export const ResultsPage = () => {
       <ol>
         <li>Все символы цепочки принадлежат алфавиту</li>
         <li>
-          Символ "{language.targetChar}" встретился ровно{" "}
-          {language.requiredCount} раз
+          Символ "{language?.targetChar || ""}" встретился ровно{" "}
+          {language?.requiredCount || 0} раз
         </li>
-        {language.targetString && (
+        {language?.targetString && (
           <li>Цепочка заканчивается подцепочкой "{language.targetString}"</li>
         )}
       </ol>
+    </div>
+  );
+
+  if (!language || !chain || !dfa) {
+    return null;
+  }
+
+  const transitions = dfa.getTransitionsList();
+
+  const stepControls = traceSteps && traceSteps.length > 0 && (
+    <Space style={{ marginTop: 16 }}>
+      <Button
+        onClick={handlePrevStep}
+        disabled={currentStep === 0}
+        icon={<StepForwardOutlined rotate={180} />}
+      >
+        Предыдущий шаг
+      </Button>
+      <Button
+        onClick={handleNextStep}
+        disabled={!traceSteps || currentStep >= traceSteps.length - 1}
+        type="primary"
+        icon={<StepForwardOutlined />}
+      >
+        Следующий шаг
+      </Button>
+      <Button onClick={handleResetSteps} disabled={currentStep === 0}>
+        С начала
+      </Button>
+      <Button
+        onClick={handleCompleteSteps}
+        disabled={!traceSteps || currentStep >= traceSteps.length - 1}
+        icon={<PlayCircleOutlined />}
+      >
+        До конца
+      </Button>
+      <div style={{ marginLeft: 16 }}>
+        Шаг {currentStep + 1} из {traceSteps?.length || 0}
+      </div>
+    </Space>
+  );
+
+  const traceTableData = traceSteps ? (
+    <Table
+      columns={[
+        {
+          title: "Шаг",
+          dataIndex: "step",
+          key: "step",
+          width: 80,
+          align: "center",
+        },
+        {
+          title: "Текущее состояние",
+          dataIndex: "state",
+          key: "state",
+          render: (state: DFAState) => renderState(state),
+        },
+        {
+          title: "Символ",
+          dataIndex: "symbol",
+          key: "symbol",
+          width: 100,
+          align: "center",
+          render: (symbol: string | undefined) => symbol || "-",
+        },
+        {
+          title: "Следующее состояние",
+          dataIndex: "nextState",
+          key: "nextState",
+          render: (nextState: DFAState | null) =>
+            nextState ? renderState(nextState) : "-",
+        },
+      ]}
+      dataSource={traceSteps.map((step, index) => ({
+        key: index,
+        step: index + 1,
+        state: step.from,
+        symbol: step.symbol,
+        nextState: step.to,
+      }))}
+      onRow={(record) => {
+        const hasOverflow =
+          dfa.isOverflowState(record.state) ||
+          (record.nextState && dfa.isOverflowState(record.nextState));
+        return {
+          style: {
+            backgroundColor: hasOverflow ? "#FFE4E1" : undefined,
+          },
+        };
+      }}
+      pagination={false}
+      style={{ marginTop: "16px" }}
+      size="small"
+    />
+  ) : null;
+
+  const stepByStepContent = traceSteps && (
+    <div style={{ marginTop: 16 }}>
+      {currentStep < traceSteps.length ? (
+        <Descriptions
+          bordered
+          column={1}
+          size="small"
+          style={{ backgroundColor: "#fafafa", padding: 16, borderRadius: 4 }}
+        >
+          <Descriptions.Item label="Текущий шаг">
+            {currentStep + 1} / {traceSteps.length}
+          </Descriptions.Item>
+          <Descriptions.Item label="Текущее состояние">
+            {renderState(traceSteps[currentStep].from)}
+          </Descriptions.Item>
+          <Descriptions.Item label="Обрабатываемый символ">
+            {traceSteps[currentStep].symbol || (
+              <Text type="secondary">(конец цепочки)</Text>
+            )}
+          </Descriptions.Item>
+          <Descriptions.Item label="Следующее состояние">
+            {traceSteps[currentStep].to
+              ? renderState(traceSteps[currentStep].to)
+              : "-"}
+          </Descriptions.Item>
+          {currentStep > 0 && (
+            <Descriptions.Item label="Обработанная часть цепочки">
+              <Text code>
+                {chain.slice(0, currentStep)}
+                <Text strong>{chain[currentStep - 1]}</Text>
+              </Text>
+            </Descriptions.Item>
+          )}
+        </Descriptions>
+      ) : null}
+
+      {stepControls}
+
+      {traceSteps.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <Title level={5}>История шагов:</Title>
+          <Table
+            columns={[
+              {
+                title: "Шаг",
+                dataIndex: "step",
+                key: "step",
+                width: 60,
+                align: "center",
+                render: (step: number) => (
+                  <div
+                    style={{
+                      fontWeight: step - 1 === currentStep ? "bold" : "normal",
+                      color: step - 1 === currentStep ? "#1890ff" : "inherit",
+                    }}
+                  >
+                    {step}
+                  </div>
+                ),
+              },
+              {
+                title: "Состояние",
+                dataIndex: "state",
+                key: "state",
+                render: (state: DFAState) => renderState(state),
+              },
+              {
+                title: "Символ",
+                dataIndex: "symbol",
+                key: "symbol",
+                width: 80,
+                align: "center",
+              },
+              {
+                title: "→",
+                width: 40,
+                align: "center",
+                render: () => "→",
+              },
+              {
+                title: "След. состояние",
+                dataIndex: "nextState",
+                key: "nextState",
+                render: (nextState: DFAState) => renderState(nextState),
+              },
+            ]}
+            dataSource={traceSteps
+              .slice(0, currentStep + 1)
+              .map((step, index) => ({
+                key: index,
+                step: index + 1,
+                state: step.from,
+                symbol: step.symbol || "-",
+                nextState: step.to,
+              }))}
+            pagination={false}
+            size="small"
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -287,57 +524,22 @@ export const ResultsPage = () => {
       {traceSteps && traceSteps.length > 0 && (
         <div style={{ marginTop: "24px" }}>
           <Title level={4}>Поэтапная проверка цепочки:</Title>
-          <Table
-            columns={[
+
+          <Tabs
+            activeKey={traceTab}
+            onChange={setTraceTab}
+            items={[
               {
-                title: "Шаг",
-                dataIndex: "step",
+                key: "all",
+                label: "Все шаги",
+                children: traceTableData,
+              },
+              {
                 key: "step",
-                width: 80,
-                align: "center",
-              },
-              {
-                title: "Текущее состояние",
-                dataIndex: "state",
-                key: "state",
-                render: (state: DFAState) => renderState(state),
-              },
-              {
-                title: "Символ",
-                dataIndex: "symbol",
-                key: "symbol",
-                width: 100,
-                align: "center",
-                render: (symbol: string | undefined) => symbol || "-",
-              },
-              {
-                title: "Следующее состояние",
-                dataIndex: "nextState",
-                key: "nextState",
-                render: (nextState: DFAState | null) =>
-                  nextState ? renderState(nextState) : "-",
+                label: "По шагам",
+                children: stepByStepContent,
               },
             ]}
-            dataSource={traceSteps.map((step, index) => ({
-              key: index,
-              step: index + 1,
-              state: step.from,
-              symbol: step.symbol,
-              nextState: step.to,
-            }))}
-            onRow={(record) => {
-              const hasOverflow =
-                dfa.isOverflowState(record.state) ||
-                (record.nextState && dfa.isOverflowState(record.nextState));
-              return {
-                style: {
-                  backgroundColor: hasOverflow ? "#FFE4E1" : undefined,
-                },
-              };
-            }}
-            pagination={false}
-            style={{ marginTop: "16px" }}
-            size="small"
           />
         </div>
       )}
