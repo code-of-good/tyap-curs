@@ -81,30 +81,29 @@ export class DFA {
   private calculateNextState(currentState: DFAState, symbol: Symbol): DFAState {
     let { count } = currentState;
 
-    if (symbol === this.targetChar) {
-      if (count <= this.requiredCount) {
-        count = count + 1;
+    if (symbol === this.targetChar && count <= this.requiredCount) {
+      count++;
+    }
+
+    if (currentState.progress === this.targetString.length) {
+      let newProgress = 0;
+      if (symbol === this.targetString[0]) {
+        newProgress = 1;
       }
+      return {
+        progress: newProgress,
+        count: Math.min(count, this.requiredCount + 1),
+      };
     }
 
     let newProgress = 0;
 
-    if (
-      currentState.progress < this.targetString.length &&
-      symbol === this.targetString[currentState.progress]
-    ) {
+    if (symbol === this.targetString[currentState.progress]) {
       newProgress = currentState.progress + 1;
     } else {
-      for (let len = currentState.progress; len > 0; len--) {
-        const prefix = this.targetString.slice(0, len - 1);
-        const suffixStart = currentState.progress - len + 1;
-        const suffix = this.targetString.slice(
-          suffixStart,
-          currentState.progress
-        );
-
-        if (prefix === suffix && symbol === this.targetString[len - 1]) {
-          newProgress = len;
+      for (let i = currentState.progress; i > 0; i--) {
+        if (this.isValidFallback(currentState.progress, i, symbol)) {
+          newProgress = i;
           break;
         }
       }
@@ -115,9 +114,30 @@ export class DFA {
     }
 
     return {
-      progress: newProgress,
-      count,
+      progress: Math.min(newProgress, this.targetString.length),
+      count: Math.min(count, this.requiredCount + 1),
     };
+  }
+
+  private isValidFallback(
+    currentProgress: number,
+    newProgress: number,
+    symbol: string
+  ): boolean {
+    if (symbol !== this.targetString[newProgress - 1]) {
+      return false;
+    }
+
+    for (let i = 0; i < newProgress - 1; i++) {
+      const prefixChar = this.targetString[i];
+      const suffixChar =
+        this.targetString[currentProgress - newProgress + 1 + i];
+      if (prefixChar !== suffixChar) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private keyToState(key: StateID): DFAState {
