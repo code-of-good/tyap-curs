@@ -75,81 +75,133 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
 
     const visibleTransitions = transitions;
 
-    const transitionCountByPair = new Map<string, number>();
+    // Группируем переходы по парам состояний
+    const transitionsByPair = new Map<string, typeof visibleTransitions>();
     visibleTransitions.forEach((transition) => {
       const fromKey = dfa.stateToKey(transition.from);
       const toKey = dfa.stateToKey(transition.to);
       const pairKey = `${fromKey}-${toKey}`;
-      transitionCountByPair.set(
-        pairKey,
-        (transitionCountByPair.get(pairKey) || 0) + 1
-      );
+
+      if (!transitionsByPair.has(pairKey)) {
+        transitionsByPair.set(pairKey, []);
+      }
+      transitionsByPair.get(pairKey)!.push(transition);
     });
 
     const edgesList: Edge[] = [];
-    const edgeIndexByPair = new Map<string, number>();
 
-    const handlePositions = [
-      { source: "top", target: "top" },
-      { source: "right", target: "right" },
-      { source: "bottom", target: "bottom" },
-      { source: "left", target: "left" },
-      { source: "top", target: "right" },
-      { source: "right", target: "bottom" },
-      { source: "bottom", target: "left" },
-      { source: "left", target: "top" },
-    ];
-
-    visibleTransitions.forEach((transition) => {
-      const fromKey = dfa.stateToKey(transition.from);
-      const toKey = dfa.stateToKey(transition.to);
-      const pairKey = `${fromKey}-${toKey}`;
-      const totalTransitions = transitionCountByPair.get(pairKey) || 1;
-      const currentIndex = edgeIndexByPair.get(pairKey) || 0;
-      edgeIndexByPair.set(pairKey, currentIndex + 1);
-
+    // Обрабатываем каждую пару состояний
+    transitionsByPair.forEach((transitionsForPair, pairKey) => {
+      const [fromKey, toKey] = pairKey.split("-");
+      const fromPos = nodePositions.get(fromKey)!;
+      const toPos = nodePositions.get(toKey)!;
       const isSelfLoop = fromKey === toKey;
-      let sourceHandle: string | undefined;
-      let targetHandle: string | undefined;
-      let edgeType: "smoothstep" | "bezier" = "smoothstep";
 
+      // Для петель
       if (isSelfLoop) {
-        edgeType = "bezier";
-        const loopHandles = [
-          { source: "right", target: "right" },
-          { source: "bottom", target: "bottom" },
-          { source: "left", target: "left" },
-          { source: "top", target: "top" },
-        ];
-        const loopHandle = loopHandles[currentIndex % loopHandles.length];
-        sourceHandle = loopHandle.source;
-        targetHandle = loopHandle.target;
-      } else if (totalTransitions > 1) {
-        const handleIndex = currentIndex % handlePositions.length;
-        const handles = handlePositions[handleIndex];
-        sourceHandle = handles.source;
-        targetHandle = handles.target;
-        edgeType = "smoothstep";
-      } else {
-        edgeType = "smoothstep";
-      }
+        transitionsForPair.forEach((transition, index) => {
+          // Размещаем петли в разных положениях вокруг узла
+          const angleOffset = (index / transitionsForPair.length) * Math.PI * 2;
+          const loopSize = 80 + index * 20; // Увеличиваем размер для каждой петли
 
-      edgesList.push({
-        id: `edge-${fromKey}-${toKey}-${transition.symbol}-${currentIndex}`,
-        source: fromKey,
-        target: toKey,
-        sourceHandle,
-        targetHandle,
-        label: transition.symbol,
-        type: edgeType,
-        animated: false,
-        style: { stroke: "#222", strokeWidth: 2 },
-        labelStyle: { fill: "#222", fontWeight: 600 },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: "#222",
-        },
-      });
+          edgesList.push({
+            id: `edge-${fromKey}-${toKey}-${transition.symbol}-${index}`,
+            source: fromKey,
+            target: toKey,
+            sourceHandle: "top",
+            targetHandle: "top",
+            label: transition.symbol,
+            type: "bezier",
+            animated: false,
+            style: { stroke: "#222", strokeWidth: 2 },
+            labelStyle: { fill: "#222", fontWeight: 600 },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: "#222",
+            },
+            // Параметры для кривой Безье для петли
+            sourceX: fromPos.x + 50 + Math.cos(angleOffset) * 50,
+            sourceY: fromPos.y + 50 + Math.sin(angleOffset) * 50,
+            targetX: fromPos.x + 50 + Math.cos(angleOffset + Math.PI / 4) * 50,
+            targetY: fromPos.y + 50 + Math.sin(angleOffset + Math.PI / 4) * 50,
+            curvature: 0.5,
+            loop: {
+              angle: angleOffset * (180 / Math.PI),
+              distance: loopSize,
+            },
+          });
+        });
+      } else {
+        // Для переходов между разными состояниями
+        // Вычисляем базовый угол и смещения
+        const dx = toPos.x - fromPos.x;
+        const dy = toPos.y - fromPos.y;
+        // const distance = Math.sqrt(dx * dx + dy * dy);
+        // const baseAngle = Math.atan2(dy, dx);
+
+        // Если только один переход, размещаем его прямо
+        if (transitionsForPair.length === 1) {
+          const transition = transitionsForPair[0];
+          edgesList.push({
+            id: `edge-${fromKey}-${toKey}-${transition.symbol}`,
+            source: fromKey,
+            target: toKey,
+            label: transition.symbol,
+            type: "smoothstep",
+            animated: false,
+            style: { stroke: "#222", strokeWidth: 2 },
+            labelStyle: { fill: "#222", fontWeight: 600 },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: "#222",
+            },
+            // Добавляем небольшое смещение, чтобы стрелка не перекрывала узел
+            sourceHandle: "right",
+            targetHandle: "left",
+            labelBgStyle: { fill: "#fff", fillOpacity: 0.85 },
+            labelBgPadding: [4, 4],
+            labelBgBorderRadius: 3,
+          });
+        } else {
+          // Для нескольких переходов используем дуги с разными радиусами
+          transitionsForPair.forEach((transition, index) => {
+            // Вычисляем смещение для дуги (перпендикулярно базовому направлению)
+            const offsetDirection = index % 2 === 0 ? 1 : -1;
+            const offsetDistance = 40 + Math.floor(index / 2) * 30;
+
+            // Создаем дугообразное ребро
+            edgesList.push({
+              id: `edge-${fromKey}-${toKey}-${transition.symbol}-${index}`,
+              source: fromKey,
+              target: toKey,
+              label: transition.symbol,
+              type: "smoothstep",
+              animated: false,
+              style: {
+                stroke: "#222",
+                strokeWidth: 2,
+              },
+              labelStyle: {
+                fill: "#222",
+                fontWeight: 600,
+              },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: "#222",
+              },
+              // Параметры для плавной кривой
+              sourceX: fromPos.x + 50,
+              sourceY: fromPos.y + 50,
+              targetX: toPos.x + 50,
+              targetY: toPos.y + 50,
+              curvature: 0.25 + index * 0.1 * offsetDirection,
+              labelBgStyle: { fill: "#fff", fillOpacity: 0.85 },
+              labelBgPadding: [4, 4],
+              labelBgBorderRadius: 3,
+            });
+          });
+        }
+      }
     });
 
     return {
@@ -171,6 +223,7 @@ export const DFAGraph = ({ dfa }: DFAGraphProps) => {
         nodes={nodes}
         edges={edges}
         fitView
+        fitViewOptions={{ padding: 0.2 }}
         attributionPosition="bottom-left"
       >
         <Background />
