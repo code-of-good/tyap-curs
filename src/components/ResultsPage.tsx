@@ -7,6 +7,7 @@ import {
   Table,
   Tabs,
   Alert,
+  Popover,
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../stores/languageStore";
@@ -14,13 +15,15 @@ import { DFA } from "../classes/DFA";
 import type { DFAState } from "../types/dfa";
 import { DFAGraph } from "./DFAGraph";
 import { InvalidSymbolError } from "../types/dfa";
+import { QuestionCircleOutlined } from "@ant-design/icons";
 
-const { Title } = Typography;
+const { Title, Paragraph, Text } = Typography;
 
 export const ResultsPage = () => {
   const language = useLanguageStore((state) => state.language);
   const chain = useLanguageStore((state) => state.chain);
   const [activeTab, setActiveTab] = useState<string>("table");
+  const [helpVisible, setHelpVisible] = useState<boolean>(false);
 
   const navigate = useNavigate();
 
@@ -57,7 +60,7 @@ export const ResultsPage = () => {
           const reasons: string[] = [];
           if (finalState.progress !== language.targetString.length) {
             reasons.push(
-              `не найдена обязательная конечная подцепочка "${language.targetString}" (  есс: ${finalState.progress}/${language.targetString.length})`
+              `не найдена обязательная конечная подцепочка "${language.targetString}" (прогресс: ${finalState.progress}/${language.targetString.length})`
             );
           }
           if (finalState.count !== language.requiredCount) {
@@ -136,11 +139,95 @@ export const ResultsPage = () => {
     },
   ];
 
+  const helpContent = (
+    <div style={{ maxWidth: 400 }}>
+      <Title level={5} style={{ marginBottom: 12 }}>
+        Справка по результатам проверки
+      </Title>
+
+      <Paragraph>
+        <Text strong>Разделы страницы:</Text>
+      </Paragraph>
+      <ul>
+        <li>
+          <Text strong>Введенные данные:</Text> показывает параметры ДКА и
+          проверяемую цепочку
+        </li>
+        <li>
+          <Text strong>Результат проверки:</Text> указывает, принимается ли
+          цепочка и почему
+        </li>
+        <li>
+          <Text strong>Поэтапная проверка:</Text> показывает каждый шаг
+          обработки цепочки
+        </li>
+        <li>
+          <Text strong>Функция переходов:</Text> содержит таблицу и граф
+          переходов ДКА
+        </li>
+      </ul>
+
+      <Paragraph style={{ marginTop: 16 }}>
+        <Text strong>Обозначения состояний:</Text>
+      </Paragraph>
+      <ul>
+        <li>
+          <Text code>q(count, progress)</Text> - общий формат состояния
+        </li>
+        <li>
+          <Text>count</Text> - количество встреченных символов "
+          {language.targetChar}"
+        </li>
+        <li>
+          <Text>progress</Text> - прогресс поиска подцепочки "
+          {language.targetString || "..."}"
+        </li>
+        <li style={{ color: "#DC143C", fontWeight: "bold" }}>
+          Красный цвет - состояние переполнения (цель недостижима)
+        </li>
+      </ul>
+
+      <Paragraph style={{ marginTop: 16 }}>
+        <Text strong>Критерии принятия цепочки:</Text>
+      </Paragraph>
+      <ol>
+        <li>Все символы цепочки принадлежат алфавиту</li>
+        <li>
+          Символ "{language.targetChar}" встретился ровно{" "}
+          {language.requiredCount} раз
+        </li>
+        {language.targetString && (
+          <li>Цепочка заканчивается подцепочкой "{language.targetString}"</li>
+        )}
+      </ol>
+    </div>
+  );
+
   return (
     <Card
       title="Результаты проверки"
       style={{ maxWidth: "1200px", margin: "20px auto" }}
-      extra={<Button onClick={() => navigate("/")}>Вернуться к форме</Button>}
+      extra={
+        <div style={{ display: "flex", gap: 8 }}>
+          <Popover
+            title="Справка"
+            content={helpContent}
+            trigger="click"
+            open={helpVisible}
+            onOpenChange={setHelpVisible}
+            placement="leftBottom"
+          >
+            <Button
+              icon={<QuestionCircleOutlined />}
+              type="default"
+              onClick={() => setHelpVisible(!helpVisible)}
+            >
+              Справка
+            </Button>
+          </Popover>
+          <Button onClick={() => navigate("/")}>Вернуться к форме</Button>
+        </div>
+      }
     >
       <Title level={4}>Введенные данные:</Title>
 
